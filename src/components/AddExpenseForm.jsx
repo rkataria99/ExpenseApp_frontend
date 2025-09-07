@@ -1,3 +1,4 @@
+// frontend/src/components/AddExpenseForm.jsx
 import React, { useMemo, useState } from "react";
 import { api } from "../api";
 
@@ -22,6 +23,10 @@ export default function AddExpenseForm({ onAdded }) {
   const [categoryGroup, setCategoryGroup] = useState("home_share");
   const [category, setCategory] = useState(CATEGORIES_BY_GROUP["home_share"][0]);
   const [note, setNote] = useState("");
+  const [date, setDate] = useState(() => {
+    const d = new Date();
+    return d.toISOString().slice(0, 10); // yyyy-mm-dd default today
+  });
 
   const groupOptions = GROUPS;
   const categories = useMemo(() => CATEGORIES_BY_GROUP[categoryGroup] || [], [categoryGroup]);
@@ -36,27 +41,30 @@ export default function AddExpenseForm({ onAdded }) {
       amount: amt,
       categoryGroup,
       category,
-      note
+      note,
+      date, // <-- send date field
     });
+
     setAmount("");
     setNote("");
+    setDate(new Date().toISOString().slice(0, 10)); // reset to today
     onAdded?.();
   };
 
   return (
-    <form className="card" onSubmit={submit} style={{minWidth: 320}}>
+    <form className="card" onSubmit={submit} style={{ minWidth: 320 }}>
       <div className="label">Add Expense</div>
-      <div className="row">
+      <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
         <input
           type="number"
           step="0.01"
           placeholder="Amount"
           value={amount}
-          onChange={e=>setAmount(e.target.value)}
+          onChange={(e) => setAmount(e.target.value)}
         />
         <select
           value={categoryGroup}
-          onChange={e=>{
+          onChange={(e) => {
             const val = e.target.value;
             setCategoryGroup(val);
             const first = (CATEGORIES_BY_GROUP[val] || [])[0] || "";
@@ -64,21 +72,26 @@ export default function AddExpenseForm({ onAdded }) {
           }}
           title="Expense group"
         >
-          {groupOptions.map(g => (
+          {groupOptions.map((g) => (
             <option key={g.key} value={g.key}>{g.label}</option>
           ))}
         </select>
         <select
           value={category}
-          onChange={e=>setCategory(e.target.value)}
+          onChange={(e) => setCategory(e.target.value)}
           title="Category"
         >
-          {categories.map(c => <option key={c}>{c}</option>)}
+          {categories.map((c) => <option key={c}>{c}</option>)}
         </select>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+        />
         <input
           placeholder="Note (optional)"
           value={note}
-          onChange={e=>setNote(e.target.value)}
+          onChange={(e) => setNote(e.target.value)}
         />
         <button className="btn" type="submit">+ Add</button>
       </div>
