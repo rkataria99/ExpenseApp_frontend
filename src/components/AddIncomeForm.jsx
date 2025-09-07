@@ -1,16 +1,23 @@
 // frontend/src/components/AddIncomeForm.jsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { api } from "../api";
+
+const todayLocal = () => new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local TZ
 
 export default function AddIncomeForm({ onAdded }) {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("Salary");
   const [note, setNote] = useState("");
-  const [date, setDate] = useState(() => {
-    // default to today in yyyy-mm-dd
-    const d = new Date();
-    return d.toISOString().slice(0, 10);
-  });
+  const [date, setDate] = useState(() => todayLocal());
+
+  // Keep date in sync if the tab stays open across midnight
+  useEffect(() => {
+    const id = setInterval(() => {
+      const t = todayLocal();
+      setDate((d) => (d !== t ? t : d));
+    }, 60 * 1000); // check once a minute
+    return () => clearInterval(id);
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -22,12 +29,15 @@ export default function AddIncomeForm({ onAdded }) {
       amount: amt,
       category,
       note,
-      date, // send date field to backend
+      date, // local YYYY-MM-DD sent to backend
     });
+
+    // notify charts/widgets to refresh
+    window.dispatchEvent(new CustomEvent("tx:changed"));
 
     setAmount("");
     setNote("");
-    setDate(new Date().toISOString().slice(0, 10)); // reset to today
+    setDate(todayLocal()); // reset to today's local date
     onAdded?.();
   };
 

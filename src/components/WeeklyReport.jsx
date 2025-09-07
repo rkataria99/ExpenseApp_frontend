@@ -24,10 +24,30 @@ export default function WeeklyReport() {
   const [rows, setRows] = useState([]);
 
   useEffect(() => {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; // get local timezone
-    api.get(`/reports/weekly?tz=${encodeURIComponent(tz)}`).then((res) => {
-      setRows(res.data || []);
-    });
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    const fetchData = () =>
+      api.get(`/reports/weekly?tz=${encodeURIComponent(tz)}`).then((res) => {
+        setRows(res.data || []);
+      });
+
+    // initial load
+    fetchData();
+
+    // refresh when any transaction is added/edited/deleted
+    const onTxChanged = () => fetchData();
+    window.addEventListener("tx:changed", onTxChanged);
+
+    // also refresh when returning to the tab (helps if API updated in background)
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchData();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      window.removeEventListener("tx:changed", onTxChanged);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const { labels, income, expense, savings } = useMemo(() => {
@@ -57,30 +77,9 @@ export default function WeeklyReport() {
   const chartData = {
     labels,
     datasets: [
-      {
-        label: "Income",
-        data: income,
-        borderColor: COLORS.income,
-        backgroundColor: COLORS.income,
-        tension: 0.35,
-        spanGaps: false,
-      },
-      {
-        label: "Expense",
-        data: expense,
-        borderColor: COLORS.expense,
-        backgroundColor: COLORS.expense,
-        tension: 0.35,
-        spanGaps: false,
-      },
-      {
-        label: "Savings",
-        data: savings,
-        borderColor: COLORS.savings,
-        backgroundColor: COLORS.savings,
-        tension: 0.35,
-        spanGaps: false,
-      },
+      { label: "Income", data: income, borderColor: COLORS.income, backgroundColor: COLORS.income, tension: 0.35, spanGaps: false },
+      { label: "Expense", data: expense, borderColor: COLORS.expense, backgroundColor: COLORS.expense, tension: 0.35, spanGaps: false },
+      { label: "Savings", data: savings, borderColor: COLORS.savings, backgroundColor: COLORS.savings, tension: 0.35, spanGaps: false },
     ],
   };
 
@@ -95,9 +94,7 @@ export default function WeeklyReport() {
             legend: { position: "bottom" },
             tooltip: { mode: "index", intersect: false },
           },
-          scales: {
-            y: { beginAtZero: true },
-          },
+          scales: { y: { beginAtZero: true } },
         }}
       />
     </div>

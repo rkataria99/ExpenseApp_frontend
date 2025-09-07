@@ -1,5 +1,5 @@
 // frontend/src/components/AddExpenseForm.jsx
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { api } from "../api";
 
 const GROUPS = [
@@ -18,15 +18,24 @@ const CATEGORIES_BY_GROUP = {
   trip_self: ["Travel", "Stay", "Food", "Shopping", "Entire Trip Cost", "Misc"]
 };
 
+// Local YYYY-MM-DD (avoids UTC → previous-day issues)
+const todayLocal = () => new Date().toLocaleDateString("en-CA");
+
 export default function AddExpenseForm({ onAdded }) {
   const [amount, setAmount] = useState("");
   const [categoryGroup, setCategoryGroup] = useState("home_share");
   const [category, setCategory] = useState(CATEGORIES_BY_GROUP["home_share"][0]);
   const [note, setNote] = useState("");
-  const [date, setDate] = useState(() => {
-    const d = new Date();
-    return d.toISOString().slice(0, 10); // yyyy-mm-dd default today
-  });
+  const [date, setDate] = useState(() => todayLocal()); // default today (local)
+
+  // If the page stays open past midnight, keep the date in sync
+  useEffect(() => {
+    const id = setInterval(() => {
+      const t = todayLocal();
+      setDate((d) => (d !== t ? t : d));
+    }, 60 * 1000); // check once per minute
+    return () => clearInterval(id);
+  }, []);
 
   const groupOptions = GROUPS;
   const categories = useMemo(() => CATEGORIES_BY_GROUP[categoryGroup] || [], [categoryGroup]);
@@ -42,13 +51,17 @@ export default function AddExpenseForm({ onAdded }) {
       categoryGroup,
       category,
       note,
-      date, // <-- send date field
+      date, // use the local date the user picked
     });
+
+    // notify charts/widgets to refresh
+    window.dispatchEvent(new CustomEvent("tx:changed"));
+
 
     setAmount("");
     setNote("");
-    setDate(new Date().toISOString().slice(0, 10)); // reset to today
-    onAdded?.();
+    setDate(todayLocal()); // reset to today (local)
+    onAdded?.(); // triggers table/summary refresh in Home
   };
 
   return (

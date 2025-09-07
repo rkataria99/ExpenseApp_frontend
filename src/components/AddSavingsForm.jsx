@@ -10,17 +10,20 @@ export default function AddSavingsForm({ onAdded }) {
     const amt = Number(amount);
     if (!amt || amt <= 0) return;
     await api.post("/transactions", { type: "savings", amount: amt, category: "Transfer", note });
+    // notify charts/widgets to refresh
+    window.dispatchEvent(new CustomEvent("tx:changed"));
+
     setAmount(""); setNote("");
     onAdded?.();
   };
 
   return (
-    <form className="card" onSubmit={submit} style={{minWidth: 320}}>
+    <form className="card" onSubmit={submit} style={{ minWidth: 320 }}>
       <div className="label">Move to Savings</div>
       <div className="row">
         <input type="number" step="0.01" placeholder="Amount"
-               value={amount} onChange={e=>setAmount(e.target.value)} />
-        <input placeholder="Note (optional)" value={note} onChange={e=>setNote(e.target.value)} />
+          value={amount} onChange={e => setAmount(e.target.value)} />
+        <input placeholder="Note (optional)" value={note} onChange={e => setNote(e.target.value)} />
         <button className="btn" type="submit">⇢ Move</button>
       </div>
     </form>
