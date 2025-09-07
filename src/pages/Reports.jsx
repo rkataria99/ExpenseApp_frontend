@@ -1,9 +1,28 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { api } from "../api";
 import ReportChart from "../components/ReportChart";
 
 export default function ReportsPage() {
+  const nowYear = new Date().getFullYear();
   const [period, setPeriod] = useState("monthly");
-  const [view, setView]   = useState("incomeStack"); // default to contained stack
+  const [view, setView] = useState("incomeStack");
+  const [years, setYears] = useState([nowYear]);
+  const [year, setYear] = useState(nowYear);
+
+  useEffect(() => {
+    api.get("/reports/years").then((res) => {
+      const ys = res.data?.years?.length ? res.data.years : [nowYear];
+      setYears(ys);
+      if (!ys.includes(year)) setYear(ys[ys.length - 1]); // default to latest
+    });
+  }, []);
+
+  // if user switches period to monthly and current year is not set, pick latest
+  useEffect(() => {
+    if (period === "monthly" && !years.includes(year)) {
+      setYear(years[years.length - 1] || nowYear);
+    }
+  }, [period, years, year]);
 
   return (
     <div className="container">
@@ -21,9 +40,22 @@ export default function ReportsPage() {
             title="Choose report range"
           >
             <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly (last 12 months)</option>
+            <option value="monthly">Monthly (select year)</option>
             <option value="total">All-time (by month)</option>
           </select>
+
+          {period === "monthly" && (
+            <select
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+              className="theme-select"
+              title="Choose year"
+            >
+              {years.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          )}
 
           <select
             value={view}
@@ -39,7 +71,7 @@ export default function ReportsPage() {
 
       <div className="grid" style={{ gridTemplateColumns: "repeat(12, 1fr)" }}>
         <div style={{ gridColumn: "span 12" }}>
-          <ReportChart period={period} view={view} />
+          <ReportChart period={period} year={year} view={view} />
         </div>
       </div>
     </div>
