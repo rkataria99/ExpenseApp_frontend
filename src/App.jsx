@@ -1,6 +1,6 @@
 // frontend/src/App.jsx
 import React, { useEffect, useRef, useState } from "react";
-import { Routes, Route, Link } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { api } from "./api";
 
 import NavBar from "./components/NavBar";
@@ -11,6 +11,7 @@ import SummaryCards from "./components/SummaryCards";
 import DataTable from "./components/DataTable";
 import WeeklyReport from "./components/WeeklyReport";
 import ReportsPage from "./pages/Reports";
+import TransactionsPage from "./pages/Transactions";
 
 const THEME_KEY = "theme"; // 'light' | 'dark' | 'system'
 
@@ -19,6 +20,15 @@ function applyTheme(theme) {
   if (theme === "light") html.setAttribute("data-theme", "light");
   else if (theme === "dark") html.setAttribute("data-theme", "dark");
   else html.removeAttribute("data-theme"); // system (uses @media)
+}
+
+// Smooth scroll that compensates for sticky navbar height
+function smoothScrollToEl(el) {
+  if (!el) return;
+  const nav = document.querySelector(".navbar");
+  const offset = (nav?.offsetHeight || 0) + 8; // 8px breathing space
+  const top = el.getBoundingClientRect().top + window.scrollY - offset;
+  window.scrollTo({ top, behavior: "smooth" });
 }
 
 function Home({ theme, toggleTheme }) {
@@ -34,7 +44,7 @@ function Home({ theme, toggleTheme }) {
   const loadAll = async () => {
     const [txRes, tRes] = await Promise.all([
       api.get("/transactions"),
-      api.get("/transactions/totals")
+      api.get("/transactions/totals"),
     ]);
     setRows(txRes.data || []);
     setTotals(tRes.data || {});
@@ -53,19 +63,35 @@ function Home({ theme, toggleTheme }) {
     loadAll();
   };
 
-  const scrollTo = (ref) =>
-    ref?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  // Handle jump from other routes (we pass state: {target})
+  const location = useLocation();
+  useEffect(() => {
+    if (location.state?.target) {
+      const t = location.state.target;
+      const map = {
+        income: incomeRef,
+        expense: expenseRef,
+        savings: savingsRef,
+        transactions: tableRef,
+      };
+      const ref = map[t];
+      // wait a tick for layout to be ready
+      setTimeout(() => smoothScrollToEl(ref?.current), 0);
+      // clear history state so back button doesn't re-scroll
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   return (
     <>
-      {/* ✅ Navbar at the very top */}
+      {/* Navbar on top */}
       <NavBar
         theme={theme}
         onToggleTheme={toggleTheme}
-        onGoIncome={() => scrollTo(incomeRef)}
-        onGoExpense={() => scrollTo(expenseRef)}
-        onGoSavings={() => scrollTo(savingsRef)}
-        onGoTransactions={() => scrollTo(tableRef)}
+        onGoIncome={() => smoothScrollToEl(incomeRef.current)}
+        onGoExpense={() => smoothScrollToEl(expenseRef.current)}
+        onGoSavings={() => smoothScrollToEl(savingsRef.current)}
+        onGoTransactions={() => smoothScrollToEl(tableRef.current)}
       />
 
       <div className="container">
@@ -78,22 +104,29 @@ function Home({ theme, toggleTheme }) {
 
         <SummaryCards totals={totals} onClear={clearAll} />
 
-        {/* Forms */}
+        {/* FORMS */}
         <div className="grid" style={{ marginTop: 16, gridTemplateColumns: "repeat(12,1fr)" }}>
           <div className="card" style={{ gridColumn: "span 12" }}>
             <div className="row">
-              <div ref={incomeRef}><AddIncomeForm onAdded={loadAll} /></div>
-              <div ref={expenseRef}><AddExpenseForm onAdded={loadAll} /></div>
-              <div ref={savingsRef}><AddSavingsForm onAdded={loadAll} /></div>
+              <div ref={incomeRef}>
+                <AddIncomeForm onAdded={loadAll} />
+              </div>
+              <div ref={expenseRef}>
+                <AddExpenseForm onAdded={loadAll} />
+              </div>
+              <div ref={savingsRef}>
+                <AddSavingsForm onAdded={loadAll} />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Table + Inline Report */}
+        {/* TABLE + INLINE REPORT */}
         <div className="grid" style={{ marginTop: 16, gridTemplateColumns: "repeat(12,1fr)" }}>
           <div style={{ gridColumn: "span 7" }} ref={tableRef}>
             <DataTable rows={rows} onDelete={handleDelete} />
           </div>
+          {/* 👇 FIX: remove stray brace here */}
           <div style={{ gridColumn: "span 5" }}>
             <WeeklyReport />
           </div>
@@ -104,11 +137,15 @@ function Home({ theme, toggleTheme }) {
 }
 
 export default function App() {
-  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || "system");
-  useEffect(() => { applyTheme(theme); localStorage.setItem(THEME_KEY, theme); }, [theme]);
+  // Default theme = LIGHT; toggle order: Light -> Dark -> System -> Light
+  const [theme, setTheme] = useState(() => "light");
+  useEffect(() => {
+    applyTheme(theme);
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
 
   const toggleTheme = () => {
-    setTheme((t) => (t === "system" ? "light" : t === "light" ? "dark" : "system"));
+    setTheme((t) => (t === "light" ? "dark" : t === "dark" ? "system" : "light"));
   };
 
   return (
@@ -118,26 +155,17 @@ export default function App() {
         path="/reports"
         element={
           <>
-            {/* Simple navbar on reports page */}
-            <div className="navbar">
-              <div className="nav-inner">
-                <div className="brand">
-                  <div className="brand-badge" />
-                  <Link to="/" className="nav-link" style={{ fontSize: 18 }}>ExpenseApp</Link>
-                </div>
-                <div className="nav-actions">
-                  <Link className="nav-link" to="/"><button className="nav-btn">Home</button></Link>
-                  <button className="toggle-pill" onClick={toggleTheme} title="Toggle theme">
-                    <span role="img" aria-label="theme">
-                      {theme === "dark" ? "🌙" : theme === "light" ? "🌞" : "🖥️"}
-                    </span>
-                    {theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System"}
-                  </button>
-                </div>
-              </div>
-            </div>
-
+            <NavBar theme={theme} onToggleTheme={toggleTheme} />
             <ReportsPage />
+          </>
+        }
+      />
+      <Route
+        path="/transactions"
+        element={
+          <>
+            <NavBar theme={theme} onToggleTheme={toggleTheme} />
+            <TransactionsPage />
           </>
         }
       />
