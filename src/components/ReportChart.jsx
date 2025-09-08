@@ -176,12 +176,22 @@ export default function ReportChart({ period = "weekly", year, view = "incomeSta
 
   // ----- LINE (gap future days/months) -----
   const toGapped = (arr) => arr.map((v, i) => (futureMask[i] ? null : v));
+
+  const cumulative = (arr) => {
+    let sum = 0;
+    return arr.map(v => (sum += Number(v || 0)));
+  };
+  const lineIncomeSeries = period === "monthly" ? cumulative(income) : income;
+  const lineExpenseSeries = period === "monthly" ? cumulative(expense) : expense;
+  const lineSavingsSeries = period === "monthly" ? cumulative(savings) : savings;
+
+
   const lineData = {
     labels,
     datasets: [
-      { label: "Income", data: toGapped(income), borderColor: COLORS.income, backgroundColor: COLORS.income, tension: 0.35, spanGaps: false },
-      { label: "Expense", data: toGapped(expense), borderColor: COLORS.expense, backgroundColor: COLORS.expense, tension: 0.35, spanGaps: false },
-      { label: "Savings", data: toGapped(savings), borderColor: COLORS.savings, backgroundColor: COLORS.savings, tension: 0.35, spanGaps: false },
+      { label: "Income", data: toGapped(lineIncomeSeries), borderColor: COLORS.income, backgroundColor: COLORS.income, tension: 0.35, spanGaps: false },
+      { label: "Expense", data: toGapped(lineExpenseSeries), borderColor: COLORS.expense, backgroundColor: COLORS.expense, tension: 0.35, spanGaps: false },
+      { label: "Savings", data: toGapped(lineSavingsSeries), borderColor: COLORS.savings, backgroundColor: COLORS.savings, tension: 0.35, spanGaps: false },
     ],
   };
 
