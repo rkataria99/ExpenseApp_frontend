@@ -1,15 +1,29 @@
-
 # dependencies
 node_modules/
 
-# builds & caches
+# builds
+build/
 dist/
-.vite/
-vite.svg
 
-# env
+# cache/artifacts
+.cache/
+.eslintcache
+*.tsbuildinfo
+*.map
+.vite/
+vite.config.ts.timestamp-*
+.storybook-out/
+.parcel-cache/
+
+# testing
+coverage/
+jest-html-reporters-*/ 
+
+# env (keep example)
 .env
 .env.*.local
+.env.local
+!.env.example
 
 # logs
 npm-debug.log*
@@ -17,12 +31,13 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# editor/OS
+# OS/editor
 .DS_Store
 Thumbs.db
-*.swp
-.idea/
 .vscode/
+.idea/
+*.swp
 
 # misc
-coverage/
+*.local
+*.log
