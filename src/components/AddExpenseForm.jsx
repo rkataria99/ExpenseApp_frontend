@@ -27,6 +27,7 @@ export default function AddExpenseForm({ onAdded }) {
   const [category, setCategory] = useState(CATEGORIES_BY_GROUP["home_share"][0]);
   const [note, setNote] = useState("");
   const [date, setDate] = useState(() => todayLocal()); // default today (local)
+  const [error, setError] = useState("");
 
   // If the page stays open past midnight, keep the date in sync
   useEffect(() => {
@@ -45,6 +46,13 @@ export default function AddExpenseForm({ onAdded }) {
     const amt = Number(amount);
     if (!amt || amt <= 0) return;
 
+    // Block future dates
+    const today = todayLocal();
+    if (date > today) {
+      setError("Future dates are not allowed.");
+      return;
+    }
+
     await api.post("/transactions", {
       type: "expense",
       amount: amt,
@@ -57,9 +65,9 @@ export default function AddExpenseForm({ onAdded }) {
     // notify charts/widgets to refresh
     window.dispatchEvent(new CustomEvent("tx:changed"));
 
-
     setAmount("");
     setNote("");
+    setError("");
     setDate(todayLocal()); // reset to today (local)
     onAdded?.(); // triggers table/summary refresh in Home
   };
@@ -99,7 +107,14 @@ export default function AddExpenseForm({ onAdded }) {
         <input
           type="date"
           value={date}
-          onChange={(e) => setDate(e.target.value)}
+          max={todayLocal()}                             // <-- prevent picking a future date
+          onChange={(e) => {
+            const next = e.target.value || todayLocal();
+            // clamp manual entry to today
+            const safe = next > todayLocal() ? todayLocal() : next;
+            setDate(safe);
+            if (error) setError("");
+          }}
         />
         <input
           placeholder="Note (optional)"
@@ -108,6 +123,12 @@ export default function AddExpenseForm({ onAdded }) {
         />
         <button className="btn" type="submit">+ Add</button>
       </div>
+
+      {error && (
+        <div className="small" style={{ color: "var(--bad)", marginTop: 6 }}>
+          {error}
+        </div>
+      )}
     </form>
   );
 }

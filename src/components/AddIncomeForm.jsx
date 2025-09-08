@@ -9,6 +9,7 @@ export default function AddIncomeForm({ onAdded }) {
   const [category, setCategory] = useState("Salary");
   const [note, setNote] = useState("");
   const [date, setDate] = useState(() => todayLocal());
+  const [error, setError] = useState("");
 
   // Keep date in sync if the tab stays open across midnight
   useEffect(() => {
@@ -24,6 +25,12 @@ export default function AddIncomeForm({ onAdded }) {
     const amt = Number(amount);
     if (!amt || amt <= 0) return;
 
+    const today = todayLocal();
+    if (date > today) {
+      setError("Future dates are not allowed.");
+      return;
+    }
+
     await api.post("/transactions", {
       type: "income",
       amount: amt,
@@ -37,6 +44,7 @@ export default function AddIncomeForm({ onAdded }) {
 
     setAmount("");
     setNote("");
+    setError("");
     setDate(todayLocal()); // reset to today's local date
     onAdded?.();
   };
@@ -61,7 +69,13 @@ export default function AddIncomeForm({ onAdded }) {
         <input
           type="date"
           value={date}
-          onChange={(e) => setDate(e.target.value)}
+          max={todayLocal()}                // <-- block future selection
+          onChange={(e) => {
+            const next = e.target.value || todayLocal();
+            // clamp in case of manual typing
+            setDate(next > todayLocal() ? todayLocal() : next);
+            if (error) setError("");
+          }}
         />
         <input
           placeholder="Note (optional)"
@@ -72,6 +86,12 @@ export default function AddIncomeForm({ onAdded }) {
           + Add
         </button>
       </div>
+
+      {error && (
+        <div className="small" style={{ color: "var(--bad)", marginTop: 6 }}>
+          {error}
+        </div>
+      )}
     </form>
   );
 }
