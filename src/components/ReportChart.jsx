@@ -10,10 +10,10 @@ import {
   Legend,
   PointElement,
   LineElement,
-  ArcElement, // <-- for Pie
+  ArcElement,
 } from "chart.js";
 import { Bar, Line } from "react-chartjs-2";
-import { Pie } from "react-chartjs-2"; // <-- for Pie
+import { Pie } from "react-chartjs-2";
 
 ChartJS.register(
   BarElement,
@@ -27,7 +27,7 @@ ChartJS.register(
 );
 
 const COLORS = {
-  income: "#457b9d",  // line only
+  income: "#457b9d", // line only
   expense: "#e76f51",
   savings: "#2a9d8f",
   remain: "#a8dadc",
@@ -66,11 +66,13 @@ export default function ReportChart({ period = "weekly", year, view = "incomeSta
     api.get(url).then((res) => {
       if (!mounted) return;
       const payload = res.data;
-      const nextRows = Array.isArray(payload) ? payload : (payload?.data || []);
+      const nextRows = Array.isArray(payload) ? payload : payload?.data || [];
       setRows(nextRows);
       setTotals(payload?.totals || null);
     });
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [period, year]);
 
   const {
@@ -81,11 +83,10 @@ export default function ReportChart({ period = "weekly", year, view = "incomeSta
     remain,
     overspendAny,
     futureMask,
-    // weekly totals for pie
     weekIncome,
     weekExpense,
     weekSavings,
-    weekRemain
+    weekRemain,
   } = useMemo(() => {
     const build = (arr, getLabel, getIncome, getExpense, getSavings) => {
       const labels = arr.map(getLabel);
@@ -93,7 +94,6 @@ export default function ReportChart({ period = "weekly", year, view = "incomeSta
       const expRaw = arr.map(getExpense).map((x) => Math.max(Number(x) || 0, 0));
       const savRaw = arr.map(getSavings).map((x) => Math.max(Number(x) || 0, 0));
 
-      // clip to income; compute remaining
       const exp = expRaw.map((v, i) => Math.min(v, inc[i]));
       const sav = savRaw.map((v, i) => Math.min(v, Math.max(inc[i] - exp[i], 0)));
       const rem = inc.map((v, i) => Math.max(v - exp[i] - sav[i], 0));
@@ -103,8 +103,7 @@ export default function ReportChart({ period = "weekly", year, view = "incomeSta
     };
 
     if (period === "weekly") {
-      // Expect rows for this week (Mon..Sun) with ISO date in r.day
-      const weekdayName = (d) => ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
+      const weekdayName = (d) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
       const out = build(
         rows,
         (r) => {
@@ -116,22 +115,21 @@ export default function ReportChart({ period = "weekly", year, view = "incomeSta
         (r) => r?.savings ?? 0
       );
 
-      // Gap future days in this week for the line chart
-      const today = new Date(); today.setHours(0,0,0,0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
       const mask = rows.map((r) => {
         if (!r?.day) return false;
         const d = new Date(r.day + "T00:00:00");
-        d.setHours(0,0,0,0);
+        d.setHours(0, 0, 0, 0);
         return d > today;
       });
 
-      // Compute one combined week summary for the pie
-      const totalIncome = out.income.reduce((a,b)=>a+b,0);
-      const totalExpenseRaw = out.expense.reduce((a,b)=>a+b,0);
-      const totalSavingsRaw = out.savings.reduce((a,b)=>a+b,0);
+      const totalIncome = out.income.reduce((a, b) => a + b, 0);
+      const totalExpenseRaw = out.expense.reduce((a, b) => a + b, 0);
+      const totalSavingsRaw = out.savings.reduce((a, b) => a + b, 0);
       const totalExpense = Math.min(totalExpenseRaw, totalIncome);
       const totalSavings = Math.min(totalSavingsRaw, Math.max(totalIncome - totalExpense, 0));
-      const totalRemain  = Math.max(totalIncome - totalExpense - totalSavings, 0);
+      const totalRemain = Math.max(totalIncome - totalExpense - totalSavings, 0);
 
       return {
         ...out,
@@ -139,13 +137,13 @@ export default function ReportChart({ period = "weekly", year, view = "incomeSta
         weekIncome: totalIncome,
         weekExpense: totalExpense,
         weekSavings: totalSavings,
-        weekRemain: totalRemain
+        weekRemain: totalRemain,
       };
     }
 
-    // monthly/total
+    // monthly/total label building
     const monthName = (mIdx) =>
-      ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][mIdx - 1] || "";
+      ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][mIdx - 1] || "";
 
     const out = build(
       rows,
@@ -159,12 +157,11 @@ export default function ReportChart({ period = "weekly", year, view = "incomeSta
       (r) => r?.savings ?? 0
     );
 
-    // mark future months for current year so line chart can gap them
     const mask = [];
     if (period === "monthly" && year) {
       const now = new Date();
       const cy = now.getFullYear();
-      const cm = now.getMonth() + 1; // 1..12
+      const cm = now.getMonth() + 1;
       if (year === cy) {
         for (let i = 0; i < rows.length; i++) {
           const mStr = rows[i]?.month || "";
@@ -179,11 +176,10 @@ export default function ReportChart({ period = "weekly", year, view = "incomeSta
 
   // ----- LINE (gap future days/months) -----
   const toGapped = (arr) => arr.map((v, i) => (futureMask[i] ? null : v));
-
   const lineData = {
     labels,
     datasets: [
-      { label: "Income",  data: toGapped(income),  borderColor: COLORS.income,  backgroundColor: COLORS.income,  tension: 0.35, spanGaps: false },
+      { label: "Income", data: toGapped(income), borderColor: COLORS.income, backgroundColor: COLORS.income, tension: 0.35, spanGaps: false },
       { label: "Expense", data: toGapped(expense), borderColor: COLORS.expense, backgroundColor: COLORS.expense, tension: 0.35, spanGaps: false },
       { label: "Savings", data: toGapped(savings), borderColor: COLORS.savings, backgroundColor: COLORS.savings, tension: 0.35, spanGaps: false },
     ],
@@ -198,28 +194,28 @@ export default function ReportChart({ period = "weekly", year, view = "incomeSta
   // ----- WEEKLY PIE (replaces bar for weekly only) -----
   const weeklyPieData = {
     labels: ["Expense", "Savings", "Remaining"],
-    datasets: [{
-      data: [weekExpense, weekSavings, weekRemain],
-      backgroundColor: [COLORS.expense, COLORS.savings, COLORS.remain],
-      borderWidth: 0
-    }]
+    datasets: [
+      {
+        data: [weekExpense, weekSavings, weekRemain],
+        backgroundColor: [COLORS.expense, COLORS.savings, COLORS.remain],
+        borderWidth: 0,
+      },
+    ],
   };
   const weeklyPieOpts = {
     plugins: {
       legend: { position: "bottom" },
-      tooltip: {
-        callbacks: { label: (ctx) => `${ctx.label}: ${formatINR(ctx.parsed || 0)}` }
-      }
-    }
+      tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${formatINR(ctx.parsed || 0)}` } },
+    },
   };
 
-  // ----- INCOME-CONTAINED STACKED BAR (unchanged; used for monthly/total) -----
+  // ----- INCOME-CONTAINED STACKED BAR (monthly) -----
   const stackData = {
     labels,
     datasets: [
-      { label: "Expense",   data: expense, backgroundColor: COLORS.expense, stack: "stack" },
-      { label: "Savings",   data: savings, backgroundColor: COLORS.savings, stack: "stack" },
-      { label: "Remaining", data: remain,  backgroundColor: COLORS.remain,  stack: "stack" },
+      { label: "Expense", data: expense, backgroundColor: COLORS.expense, stack: "stack" },
+      { label: "Savings", data: savings, backgroundColor: COLORS.savings, stack: "stack" },
+      { label: "Remaining", data: remain, backgroundColor: COLORS.remain, stack: "stack" },
     ],
   };
 
@@ -246,12 +242,47 @@ export default function ReportChart({ period = "weekly", year, view = "incomeSta
     },
   };
 
+  // ===== ALL-TIME: SINGLE PIE (always) =====
+  const allIncome =
+    (totals && Number(totals.income)) || income.reduce((a, b) => a + b, 0);
+  const allExpenseRaw =
+    (totals && Number(totals.expense)) || expense.reduce((a, b) => a + b, 0);
+  const allSavingsRaw =
+    (totals && Number(totals.savings)) || savings.reduce((a, b) => a + b, 0);
+
+  const allExpense = Math.min(allExpenseRaw, allIncome);
+  const allSavings = Math.min(allSavingsRaw, Math.max(allIncome - allExpense, 0));
+  const allRemain = Math.max(allIncome - allExpense - allSavings, 0);
+
+  const totalPieData = {
+    labels: ["Expense", "Savings", "Remaining"],
+    datasets: [
+      {
+        data: [allExpense, allSavings, allRemain],
+        backgroundColor: [COLORS.expense, COLORS.savings, COLORS.remain],
+        borderWidth: 0,
+      },
+    ],
+  };
+
+  const totalPieOpts = {
+    plugins: {
+      legend: { position: "bottom" },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => `${ctx.label}: ${formatINR(ctx.parsed || 0)}`,
+          footer: () => `Income: ${formatINR(allIncome)}`,
+        },
+      },
+    },
+  };
+
   const headerText =
     period === "weekly"
       ? "This Week (Mon–Sun)"
       : period === "monthly"
-      ? `Monthly (${year || new Date().getFullYear()})`
-      : "All-time (by month)";
+        ? `Monthly (${year || new Date().getFullYear()})`
+        : "All-time (since first entry)";
 
   return (
     <div className="card">
@@ -284,27 +315,31 @@ export default function ReportChart({ period = "weekly", year, view = "incomeSta
         </span>
       </div>
 
-      {period === "weekly"
-        ? (view === "line"
-            ? <Line data={lineData} options={lineOpts} />
-            : <div style={{ maxWidth: 520, marginInline: "auto" }}>
-                <Pie data={weeklyPieData} options={weeklyPieOpts} />
-              </div>
-          )
-        : (view === "line"
-            ? <Line data={lineData} options={lineOpts} />
-            : <Bar data={stackData} options={stackOpts} />
-          )
-      }
-
-      {period === "total" && totals && (
-        <div className="small" style={{ marginTop: 8 }}>
-          All-time — Income: ₹{totals.income.toFixed(2)} • Expense: ₹{totals.expense.toFixed(2)} •
-          Savings: ₹{totals.savings.toFixed(2)} • Balance: ₹{totals.balance.toFixed(2)}
+      {period === "weekly" ? (
+        view === "line" ? (
+          <Line data={lineData} options={lineOpts} />
+        ) : (
+          <div style={{ maxWidth: 520, marginInline: "auto" }}>
+            <Pie data={weeklyPieData} options={weeklyPieOpts} />
+          </div>
+        )
+      ) : period === "monthly" ? (
+        view === "line" ? <Line data={lineData} options={lineOpts} /> : <Bar data={stackData} options={stackOpts} />
+      ) : (
+        // ALL-TIME: single income-contained bar (ignore view)
+        <div style={{ maxWidth: 520, marginInline: "auto" }}>
+          <Pie data={totalPieData} options={totalPieOpts} />
         </div>
       )}
 
-      {view !== "line" && overspendAny && period !== "weekly" && (
+      {period === "total" && totals && (
+        <div className="small" style={{ marginTop: 8 }}>
+          All-time — Income: ₹{Number(totals.income || 0).toFixed(2)} • Expense: ₹{Number(totals.expense || 0).toFixed(2)} •
+          Savings: ₹{Number(totals.savings || 0).toFixed(2)} • Balance: ₹{Number(totals.balance || 0).toFixed(2)}
+        </div>
+      )}
+
+      {view !== "line" && overspendAny && period === "monthly" && (
         <div className="small" style={{ marginTop: 8, color: "var(--bad)" }}>
           Note: In some periods, expenses + savings exceeded income. Bars are clipped to the income
           span; see exact amounts in the tooltip.
