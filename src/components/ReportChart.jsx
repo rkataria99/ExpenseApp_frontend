@@ -290,30 +290,36 @@ export default function ReportChart({ period = "weekly", year, view = "incomeSta
   const weeklyPieOpts = {
     plugins: {
       legend: { position: "bottom" },
-      tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${formatINR(ctx.parsed || 0)}` } },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => `${ctx.label}: ${formatINR(ctx.parsed || 0)}`,
+          footer: () => `Income: ${formatINR(weekIncome)}`,
+        },
+      },
     },
   };
+
 
   // ----- INCOME-CONTAINED STACKED BAR -----
   // For MONTHLY we show CUMULATIVE stacks (carry-forward); others unchanged.
   const stackData =
     period === "monthly" && Array.isArray(cumRemain)
       ? {
-          labels,
-          datasets: [
-            { label: "Expense", data: cumExpense, backgroundColor: COLORS.expense, stack: "stack" },
-            { label: "Savings", data: cumSavings, backgroundColor: COLORS.savings, stack: "stack" },
-            { label: "Remaining", data: cumRemain, backgroundColor: COLORS.remain, stack: "stack" },
-          ],
-        }
+        labels,
+        datasets: [
+          { label: "Expense", data: cumExpense, backgroundColor: COLORS.expense, stack: "stack" },
+          { label: "Savings", data: cumSavings, backgroundColor: COLORS.savings, stack: "stack" },
+          { label: "Remaining", data: cumRemain, backgroundColor: COLORS.remain, stack: "stack" },
+        ],
+      }
       : {
-          labels,
-          datasets: [
-            { label: "Expense", data: expense, backgroundColor: COLORS.expense, stack: "stack" },
-            { label: "Savings", data: savings, backgroundColor: COLORS.savings, stack: "stack" },
-            { label: "Remaining", data: remain, backgroundColor: COLORS.remain, stack: "stack" },
-          ],
-        };
+        labels,
+        datasets: [
+          { label: "Expense", data: expense, backgroundColor: COLORS.expense, stack: "stack" },
+          { label: "Savings", data: savings, backgroundColor: COLORS.savings, stack: "stack" },
+          { label: "Remaining", data: remain, backgroundColor: COLORS.remain, stack: "stack" },
+        ],
+      };
 
   const maxIncome =
     period === "monthly" && Array.isArray(cumIncome)
