@@ -1,4 +1,4 @@
-// frontend/src/components/NavBar.jsx
+// frontend/src/components/Navbar.jsx
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../App"; // re-export useAuth from App.jsx (AuthCtx)

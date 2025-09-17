@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState, useMemo, useCallback, createContext
 import { Routes, Route, useLocation, Navigate, useNavigate } from "react-router-dom";
 import { api, login as apiLogin, register as apiRegister, logout as apiLogout, me as apiMe, getAuthToken } from "./api";
 
-import NavBar from "./components/NavBar";
+import NavBar from "./components/Navbar";
 import AddIncomeForm from "./components/AddIncomeForm";
 import AddExpenseForm from "./components/AddExpenseForm";
 import AddSavingsForm from "./components/AddSavingsForm";
