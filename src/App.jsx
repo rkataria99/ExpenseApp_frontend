@@ -1,7 +1,22 @@
 // frontend/src/App.jsx
-import React, { useEffect, useRef, useState, useMemo, useCallback, createContext, useContext } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  useCallback,
+  createContext,
+  useContext,
+} from "react";
 import { Routes, Route, useLocation, Navigate, useNavigate } from "react-router-dom";
-import { api, login as apiLogin, register as apiRegister, logout as apiLogout, me as apiMe, getAuthToken } from "./api";
+import {
+  api,
+  login as apiLogin,
+  register as apiRegister,
+  logout as apiLogout,
+  me as apiMe,
+  getAuthToken,
+} from "./api";
 
 import NavBar from "./components/Navbar";
 import AddIncomeForm from "./components/AddIncomeForm";
@@ -23,12 +38,18 @@ function applyTheme(theme) {
   else html.removeAttribute("data-theme"); // system (uses @media)
 }
 
-// Smooth scroll that compensates for sticky navbar height
+// Smooth scroll helper that works with our fixed navbar + spacer
 function smoothScrollToEl(el) {
   if (!el) return;
+  // Compute an explicit target Y using the measured nav height (if present)
   const nav = document.querySelector(".navbar");
-  const offset = (nav?.offsetHeight || 0) + 8; // 8px breathing space
-  const top = el.getBoundingClientRect().top + window.scrollY - offset;
+  const spacer = document.querySelector(".nav-spacer");
+  const navH = nav?.offsetHeight || 0;
+  const spacerH = spacer?.offsetHeight || 0;
+  const navbarOverlays = nav && (!spacer || Math.abs(spacerH - navH) > 2);
+  const offset = (navbarOverlays ? navH : 0) + 8;
+
+  const top = Math.max(0, el.getBoundingClientRect().top + window.scrollY - offset);
   window.scrollTo({ top, behavior: "smooth" });
 }
 
@@ -40,13 +61,15 @@ function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [checked, setChecked] = useState(false);
 
-  // On mount (or when token changes), verify session
   useEffect(() => {
     let active = true;
     const verify = async () => {
       try {
         if (!getAuthToken()) {
-          if (active) { setUser(null); setChecked(true); }
+          if (active) {
+            setUser(null);
+            setChecked(true);
+          }
           return;
         }
         const u = await apiMe();
@@ -59,7 +82,6 @@ function AuthProvider({ children }) {
     };
     verify();
 
-    // react to global auth events from api.js
     const onLogin = (e) => setUser(e.detail || (user ?? {}));
     const onLogout = () => setUser(null);
     window.addEventListener("auth:login", onLogin);
@@ -80,7 +102,7 @@ function AuthProvider({ children }) {
 function RequireAuth({ children }) {
   const { user, checked } = useAuth();
   const location = useLocation();
-  if (!checked) return null; // or a small spinner if you prefer
+  if (!checked) return null;
   if (!user) return <Navigate to="/login" replace state={{ from: location }} />;
   return children;
 }
@@ -104,7 +126,8 @@ function LoginPage() {
     setBusy(true);
     try {
       await apiLogin(email.trim(), password);
-      const to = (history.state && history.state.usr && history.state.usr.from?.pathname) || "/";
+      const to =
+        (history.state && history.state.usr && history.state.usr.from?.pathname) || "/";
       navigate(to, { replace: true });
     } catch (ex) {
       setErr(ex?.response?.data?.message || "Login failed");
@@ -118,11 +141,27 @@ function LoginPage() {
       <h1>Login</h1>
       <form className="card" onSubmit={submit}>
         <div className="row" style={{ flexDirection: "column", gap: 8 }}>
-          <input type="email" placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} required />
-          <input type="password" placeholder="Password" value={password} onChange={(e)=>setPassword(e.target.value)} required />
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
           {err && <div className="small" style={{ color: "var(--bad)" }}>{err}</div>}
-          <button className="btn" type="submit" disabled={busy}>{busy ? "Signing in..." : "Login"}</button>
-          <div className="small">New here? <a href="/register">Create an account</a></div>
+          <button className="btn" type="submit" disabled={busy}>
+            {busy ? "Signing in..." : "Login"}
+          </button>
+          <div className="small">
+            New here? <a href="/register">Create an account</a>
+          </div>
         </div>
       </form>
     </div>
@@ -161,11 +200,13 @@ function RegisterPage() {
       <h1>Register</h1>
       <form className="card" onSubmit={submit}>
         <div className="row" style={{ flexDirection: "column", gap: 8 }}>
-          <input placeholder="Name" value={name} onChange={(e)=>setName(e.target.value)} required />
-          <input type="email" placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} required />
-          <input type="password" placeholder="Password" value={password} onChange={(e)=>setPassword(e.target.value)} required />
+          <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
+          <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           {err && <div className="small" style={{ color: "var(--bad)" }}>{err}</div>}
-          <button className="btn" type="submit" disabled={busy}>{busy ? "Creating..." : "Register"}</button>
+          <button className="btn" type="submit" disabled={busy}>
+            {busy ? "Creating..." : "Register"}
+          </button>
           <div className="small">Already have an account? <a href="/login">Login</a></div>
         </div>
       </form>
@@ -173,12 +214,12 @@ function RegisterPage() {
   );
 }
 
-// -------------------- HOME (unchanged UI, just as-is) --------------------
+// -------------------- HOME --------------------
 function Home({ theme, toggleTheme }) {
   const [rows, setRows] = useState([]);
   const [totals, setTotals] = useState({});
 
-  // section refs for smooth scroll
+  // section refs
   const incomeRef = useRef(null);
   const expenseRef = useRef(null);
   const savingsRef = useRef(null);
@@ -195,7 +236,7 @@ function Home({ theme, toggleTheme }) {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  // auto-refresh on tx change (you already dispatch 'tx:changed')
+  // auto-refresh on tx change
   useEffect(() => {
     const h = () => loadAll();
     window.addEventListener("tx:changed", h);
@@ -213,22 +254,50 @@ function Home({ theme, toggleTheme }) {
     loadAll();
   };
 
-  // Handle jump from other routes (we pass state: {target})
+  // Jump logic for deep links and navbar state
   const location = useLocation();
-  useEffect(() => {
-    if (location.state?.target) {
-      const t = location.state.target;
-      const map = {
+  const navigate = useNavigate();
+
+  const mapTargetToRef = useCallback(
+    (t) =>
+      ({
         income: incomeRef,
         expense: expenseRef,
         savings: savingsRef,
         transactions: tableRef,
-      };
-      const ref = map[t];
-      setTimeout(() => smoothScrollToEl(ref?.current), 0);
-      window.history.replaceState({}, document.title);
+      }[t]),
+    []
+  );
+
+  // From other routes (state: { target })
+  useEffect(() => {
+    if (location.state?.target) {
+      const t = location.state.target;
+      const ref = mapTargetToRef(t);
+      setTimeout(() => {
+        // Prefer anchor if exists, else scroll to ref
+        const anchor = document.getElementById(`${t}-anchor`);
+        if (anchor) anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+        else smoothScrollToEl(ref?.current);
+      }, 0);
+      navigate(location.pathname, { replace: true, state: undefined });
     }
-  }, [location.state]);
+  }, [location.state, mapTargetToRef, navigate, location.pathname]);
+
+  // Hash navigation while already on Home (/#income etc.)
+  useEffect(() => {
+    if (location.hash && location.hash.length > 1) {
+      const raw = location.hash.slice(1);
+      const t = raw.replace("-anchor", "");
+      const anchor = document.getElementById(`${t}-anchor`) || document.getElementById(raw);
+      const ref = mapTargetToRef(t)?.current;
+      setTimeout(() => {
+        if (anchor) anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+        else smoothScrollToEl(ref || document.getElementById(t));
+      }, 0);
+      // keep hash to allow reloading with deep-link
+    }
+  }, [location.hash, mapTargetToRef]);
 
   return (
     <>
@@ -236,10 +305,26 @@ function Home({ theme, toggleTheme }) {
       <NavBar
         theme={theme}
         onToggleTheme={toggleTheme}
-        onGoIncome={() => smoothScrollToEl(incomeRef.current)}
-        onGoExpense={() => smoothScrollToEl(expenseRef.current)}
-        onGoSavings={() => smoothScrollToEl(savingsRef.current)}
-        onGoTransactions={() => smoothScrollToEl(tableRef.current)}
+        onGoIncome={() => {
+          const a = document.getElementById("income-anchor");
+          if (a) a.scrollIntoView({ behavior: "smooth", block: "start" });
+          else smoothScrollToEl(incomeRef.current);
+        }}
+        onGoExpense={() => {
+          const a = document.getElementById("expense-anchor");
+          if (a) a.scrollIntoView({ behavior: "smooth", block: "start" });
+          else smoothScrollToEl(expenseRef.current);
+        }}
+        onGoSavings={() => {
+          const a = document.getElementById("savings-anchor");
+          if (a) a.scrollIntoView({ behavior: "smooth", block: "start" });
+          else smoothScrollToEl(savingsRef.current);
+        }}
+        onGoTransactions={() => {
+          const a = document.getElementById("transactions-anchor");
+          if (a) a.scrollIntoView({ behavior: "smooth", block: "start" });
+          else smoothScrollToEl(tableRef.current);
+        }}
         onLogout={() => apiLogout()}
       />
 
@@ -256,14 +341,18 @@ function Home({ theme, toggleTheme }) {
         {/* FORMS */}
         <div className="grid" style={{ marginTop: 16, gridTemplateColumns: "repeat(12,1fr)" }}>
           <div className="card" style={{ gridColumn: "span 12" }}>
+            {/* ⬇⬇ anchor markers offset using --nav-h so the section sits below the fixed navbar */}
+            <div id="income-anchor" className="scroll-target" aria-hidden="true" />
             <div className="row">
-              <div ref={incomeRef}>
+              <div id="income" ref={incomeRef}>
                 <AddIncomeForm onAdded={loadAll} />
               </div>
-              <div ref={expenseRef}>
+              <div id="expense-anchor" className="scroll-target" aria-hidden="true" />
+              <div id="expense" ref={expenseRef}>
                 <AddExpenseForm onAdded={loadAll} />
               </div>
-              <div ref={savingsRef}>
+              <div id="savings-anchor" className="scroll-target" aria-hidden="true" />
+              <div id="savings" ref={savingsRef}>
                 <AddSavingsForm onAdded={loadAll} />
               </div>
             </div>
@@ -272,7 +361,8 @@ function Home({ theme, toggleTheme }) {
 
         {/* TABLE + INLINE REPORT */}
         <div className="grid" style={{ marginTop: 16, gridTemplateColumns: "repeat(12,1fr)" }}>
-          <div style={{ gridColumn: "span 7" }} ref={tableRef}>
+          <div id="transactions-anchor" className="scroll-target" aria-hidden="true" />
+          <div id="transactions" style={{ gridColumn: "span 7" }} ref={tableRef}>
             <DataTable rows={rows} onDelete={handleDelete} />
           </div>
           <div style={{ gridColumn: "span 5" }}>
@@ -286,7 +376,6 @@ function Home({ theme, toggleTheme }) {
 
 // -------------------- APP --------------------
 function Shell({ children, theme, toggleTheme }) {
-  // optional: a top navbar on secondary pages too
   return (
     <>
       <NavBar theme={theme} onToggleTheme={toggleTheme} onLogout={() => apiLogout()} />
@@ -296,7 +385,6 @@ function Shell({ children, theme, toggleTheme }) {
 }
 
 export default function App() {
-  // Default theme = LIGHT; toggle order: Light -> Dark -> System -> Light
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || "light");
   useEffect(() => {
     applyTheme(theme);
