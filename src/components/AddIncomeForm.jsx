@@ -2,51 +2,77 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api";
 
-const todayLocal = () => new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local TZ
+/* ---- Date helpers ---- */
+// Local YYYY-MM-DD (nice for inputs)
+const todayLocal = () => new Date().toLocaleDateString("en-CA");
+// Server/UTC YYYY-MM-DD (what your hosted API validates against)
+const todayUTC = () => new Date().toISOString().slice(0, 10);
+// Never allow a date beyond the server's "today"
+const clampToServerToday = (d) => (d > todayUTC() ? todayUTC() : d);
+
+/* ---- Number helper ---- */
+const num = (v) => {
+  const n = typeof v === "number" ? v : parseFloat(String(v).replace(/[, ]/g, ""));
+  return Number.isFinite(n) ? n : undefined;
+};
 
 export default function AddIncomeForm({ onAdded }) {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("Salary");
   const [note, setNote] = useState("");
-  const [date, setDate] = useState(() => todayLocal());
+  // Initialize with a server-safe "today"
+  const [date, setDate] = useState(() => clampToServerToday(todayLocal()));
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  // Keep date in sync if the tab stays open across midnight
+  // Keep "today" fresh if the tab stays open across midnight; clamp to server day
   useEffect(() => {
     const id = setInterval(() => {
-      const t = todayLocal();
-      setDate((d) => (d !== t ? t : d));
-    }, 60 * 1000); // check once a minute
+      setDate((prev) => clampToServerToday(todayLocal()));
+    }, 60 * 1000);
     return () => clearInterval(id);
   }, []);
 
   const submit = async (e) => {
     e.preventDefault();
-    const amt = Number(amount);
+    setError("");
+
+    const amt = num(amount);
     if (!amt || amt <= 0) return;
 
-    const today = todayLocal();
-    if (date > today) {
-      setError("Future dates are not allowed.");
-      return;
+    // Final server-safe date (prevents 400 on hosted API)
+    const finalDate = clampToServerToday(date);
+
+    try {
+      setBusy(true);
+      await api.post("/transactions", {
+        type: "income",
+        amount: amt,
+        category,
+        note: note?.trim() || undefined,
+        date: finalDate, // always <= UTC "today"
+      });
+
+      // notify charts/widgets to refresh
+      window.dispatchEvent(new CustomEvent("tx:changed"));
+
+      // reset
+      setAmount("");
+      setNote("");
+      setDate(clampToServerToday(todayLocal()));
+      onAdded?.();
+    } catch (ex) {
+      const msg =
+        ex?.response?.data?.message ||
+        ex?.response?.data?.error ||
+        ex?.message ||
+        "Failed to add income.";
+      setError(msg);
+      // eslint-disable-next-line no-console
+      console.error("Add income failed:", ex?.response || ex);
+    } finally {
+      setBusy(false);
     }
-
-    await api.post("/transactions", {
-      type: "income",
-      amount: amt,
-      category,
-      note,
-      date, // local YYYY-MM-DD sent to backend
-    });
-
-    // notify charts/widgets to refresh
-    window.dispatchEvent(new CustomEvent("tx:changed"));
-
-    setAmount("");
-    setNote("");
-    setError("");
-    setDate(todayLocal()); // reset to today's local date
-    onAdded?.();
   };
 
   return (
@@ -60,30 +86,34 @@ export default function AddIncomeForm({ onAdded }) {
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
         />
+
         <select value={category} onChange={(e) => setCategory(e.target.value)}>
           <option>Salary</option>
           <option>Freelance</option>
           <option>Bonus</option>
           <option>Other</option>
         </select>
+
+        {/* max is server "today"; value is clamped to server "today" */}
         <input
           type="date"
           value={date}
-          max={todayLocal()}                // <-- block future selection
+          max={todayUTC()}
           onChange={(e) => {
             const next = e.target.value || todayLocal();
-            // clamp in case of manual typing
-            setDate(next > todayLocal() ? todayLocal() : next);
+            setDate(clampToServerToday(next));
             if (error) setError("");
           }}
         />
+
         <input
           placeholder="Note (optional)"
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
-        <button className="btn" type="submit">
-          + Add
+
+        <button className="btn" type="submit" disabled={busy}>
+          {busy ? "Adding..." : "+ Add"}
         </button>
       </div>
 
