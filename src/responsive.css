@@ -272,3 +272,90 @@ img, svg, canvas, video { max-width: 100%; height: auto; display: block; }
 @media (min-width: 1024px) {
   .grid { display: grid !important; }
 }
+
+/* =========================================================
+   Navbar: Quick actions dropdown & responsive visibility
+   ========================================================= */
+
+/* Show dropdown at ≤1024 (tablet & smaller) */
+.qa-dropdown { display: none; position: relative; }
+@media (max-width: 1024px) {
+  .qa-dropdown { display: inline-block; }
+}
+
+/* Inline buttons that should disappear on tablet & down */
+@media (max-width: 1024px) { .hide-at-tablet { display: none !important; } }
+/* Inline "All Transactions" disappears at ≤425 */
+@media (max-width: 425px) { .hide-at-425 { display: none !important; } }
+/* Inline "Reports" disappears strictly below 425 */
+@media (max-width: 424px) { .hide-below-425 { display: none !important; } }
+
+/* Dropdown menu styles */
+.qa-toggle { position: relative; z-index: 2; }
+.qa-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 190px;
+  background: var(--panel, #fff);
+  border: 1px solid var(--border, rgba(0,0,0,.08));
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  border-radius: 10px;
+  padding: 8px;
+  z-index: 10001;
+}
+.qa-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  text-decoration: none;           /* remove blue underline for <Link> */
+  white-space: nowrap;
+}
+.qa-item:hover,
+.qa-item:focus { background: rgba(0,0,0,.05); outline: none; }
+
+/* Default: hide these (prevent dupes) */
+.dd-transactions, .dd-reports { display: none; }
+
+/* Which items appear in the dropdown at each size */
+@media (min-width: 426px) and (max-width: 1024px) {
+  .qa-dropdown .dd-transactions,
+  .qa-dropdown .dd-reports { display: none !important; }
+}
+@media (max-width: 425px) {
+  /* We hid inline "All Transactions" at this width, so show it in the menu */
+  .qa-dropdown .dd-transactions { display: block !important; }
+  .qa-dropdown .dd-reports { display: none !important; } /* keep Reports inline at 425 */
+}
+
+/* Below 425, also move Reports into the dropdown */
+@media (max-width: 424px) {
+  .qa-dropdown .dd-reports { display: block !important; }
+}
+
+/* --- Fix: prevent clipping at 375px (menu inside scrollable bar) --- */
+@media (max-width: 425px) {
+  .nav-actions { overflow: visible !important; max-width: 68vw; } /* allow dropdown to escape */
+}
+
+/* --- Fix: at very small widths, show menu as a fixed overlay so it never overflows --- */
+@media (max-width: 375px) {
+  .qa-dropdown { position: static; }
+  .qa-menu {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    top: calc(var(--nav-h, 60px) + 6px);
+    min-width: 0;
+    width: auto;
+    max-height: calc(100vh - var(--nav-h, 60px) - 20px);
+    overflow: auto;
+  }
+}

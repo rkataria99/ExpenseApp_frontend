@@ -1,6 +1,7 @@
-import React, { useLayoutEffect, useRef, useState } from "react";
+// frontend/src/components/Navbar.jsx
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../App"; // re-export useAuth from App.jsx (AuthCtx)
+import { useAuth } from "../App";
 
 export default function NavBar({
   theme,
@@ -16,7 +17,7 @@ export default function NavBar({
   const { user } = useAuth();
   const onHome = pathname === "/";
 
-  // --- Fixed navbar: measure height so we can offset scroll precisely ---
+  // measure fixed navbar
   const navRef = useRef(null);
   const [navH, setNavH] = useState(64);
   useLayoutEffect(() => {
@@ -25,11 +26,9 @@ export default function NavBar({
     const measure = () => {
       const h = el.getBoundingClientRect().height || 64;
       setNavH(h);
-      // expose to CSS if you decide to use scroll-margin in CSS
       document.documentElement.style.setProperty("--nav-h", `${h}px`);
     };
     measure();
-
     let ro;
     if ("ResizeObserver" in window) {
       ro = new ResizeObserver(measure);
@@ -43,11 +42,10 @@ export default function NavBar({
     };
   }, []);
 
-  // Robust on-page scroll that ignores hash quirks and offsets the fixed navbar
   const scrollToTargetById = (target) => {
     if (!target) return;
     const lookups = [
-      `#${target}`,             // e.g. #income
+      `#${target}`,
       `#${target}-form`,
       `#${target}Form`,
       `#${target}-section`,
@@ -61,19 +59,11 @@ export default function NavBar({
       if (el) break;
     }
     if (!el) return;
-
-    // Compute top – offset by current navbar height (+ a little breathing room)
     const offset = (navH || 0) + 8;
     const top = el.getBoundingClientRect().top + window.scrollY - offset;
-
-    // Scroll smoothly
     window.scrollTo({ top, behavior: "smooth" });
-
-    // Optional: focus first input to make it obvious
     const focusable = el.querySelector("input, select, textarea, button");
-    if (focusable) {
-      try { focusable.focus({ preventScroll: true }); } catch {}
-    }
+    if (focusable) { try { focusable.focus({ preventScroll: true }); } catch {} }
   };
 
   const handleBrandClick = (e) => {
@@ -86,25 +76,43 @@ export default function NavBar({
     }
   };
 
+  // --- dropdown state + close helpers
+  const [open, setOpen] = useState(false);
+  const ddRef = useRef(null);
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (!ddRef.current) return;
+      if (!ddRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDoc);
+    return () => document.removeEventListener("pointerdown", onDoc);
+  }, []);
+
+  // close dropdown on route change
+  const loc = useLocation();
+  useEffect(() => setOpen(false), [loc.pathname]);
+
+  // wrap all quick actions so the menu always closes
+  const doAndClose = (fn) => () => {
+    setOpen(false);
+    fn?.();
+  };
   const goOrNav = (target) => {
+    // close immediately so it doesn't remain open on "/"
+    setOpen(false);
+
     if (onHome) {
-      // Keep your original callbacks (if they perform extra logic)
       if (target === "income") onGoIncome?.();
       if (target === "expense") onGoExpense?.();
       if (target === "savings") onGoSavings?.();
       if (target === "transactions") onGoTransactions?.();
-
-      // Force a visible scroll right now (works even if hash didn't change)
       scrollToTargetById(target);
-
-      // Refresh the hash so deep-links still look right
       const url = new URL(window.location.href);
       url.hash = `#${target}`;
       window.history.replaceState(null, "", url.toString());
     } else {
-      // Navigate to Home and pass intent; Home will also handle it
       navigate("/", { state: { target, from: "navbar", ts: Date.now() } });
-      // Set the hash after the route change so anchor links work too
       setTimeout(() => {
         const url = new URL(window.location.href);
         url.hash = `#${target}`;
@@ -118,7 +126,6 @@ export default function NavBar({
 
   return (
     <>
-      {/* Fixed navbar */}
       <div className="navbar" ref={navRef}>
         <div className="nav-inner">
           <div className="brand">
@@ -131,20 +138,49 @@ export default function NavBar({
           <div className="nav-actions">
             {user && (
               <>
-                <button className="nav-btn" onClick={() => goOrNav("income")}>+ Add Income</button>
-                <button className="nav-btn" onClick={() => goOrNav("expense")}>+ Add Expense</button>
-                <button className="nav-btn" onClick={() => goOrNav("savings")}>+ Add Savings</button>
+                {/* inline buttons (hidden via CSS at breakpoints) */}
+                <button className="nav-btn hide-at-tablet" onClick={() => goOrNav("income")}>+ Add Income</button>
+                <button className="nav-btn hide-at-tablet" onClick={() => goOrNav("expense")}>+ Add Expense</button>
+                <button className="nav-btn hide-at-tablet" onClick={() => goOrNav("savings")}>+ Add Savings</button>
 
-                <Link className="nav-btn nav-link" to="/transactions">All Transactions</Link>
-                <Link className="nav-btn nav-link" to="/reports">Reports</Link>
+                <Link className="nav-btn nav-link hide-at-425" to="/transactions">All Transactions</Link>
+                <Link className="nav-btn nav-link hide-below-425" to="/reports">Reports</Link>
+
+                {/* dropdown (tablet & smaller) */}
+                <div className="qa-dropdown" ref={ddRef}>
+                  <button
+                    className="nav-btn qa-toggle"
+                    aria-expanded={open ? "true" : "false"}
+                    aria-haspopup="menu"
+                    onClick={() => setOpen((v) => !v)}
+                    onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
+                  >
+                    Quick actions ▾
+                  </button>
+
+                  {open && (
+                    <div className="qa-menu" role="menu">
+                      <button className="qa-item" role="menuitem" onClick={() => goOrNav("income")}>+ Add Income</button>
+                      <button className="qa-item" role="menuitem" onClick={() => goOrNav("expense")}>+ Add Expense</button>
+                      <button className="qa-item" role="menuitem" onClick={() => goOrNav("savings")}>+ Add Savings</button>
+
+                      {/* Added at ≤425 via CSS */}
+                      <Link className="qa-item dd-transactions" role="menuitem" to="/transactions" onClick={() => setOpen(false)}>
+                        All Transactions
+                      </Link>
+                      {/* Added below 425 via CSS */}
+                      <Link className="qa-item dd-reports" role="menuitem" to="/reports" onClick={() => setOpen(false)}>
+                        Reports
+                      </Link>
+                    </div>
+                  )}
+                </div>
               </>
             )}
 
             {user ? (
               <>
-                <span className="small" style={{ marginInline: 8 }}>
-                  Hi, {user.name || user.email}
-                </span>
+                <span className="small" style={{ marginInline: 8 }}>Hi, {user.name || user.email}</span>
                 <button className="nav-btn" onClick={onLogout}>Logout</button>
               </>
             ) : (
@@ -162,7 +198,6 @@ export default function NavBar({
         </div>
       </div>
 
-      {/* Spacer exactly matching navbar height (prevents overlap) */}
       <div className="nav-spacer" aria-hidden="true" style={{ height: navH }} />
     </>
   );
