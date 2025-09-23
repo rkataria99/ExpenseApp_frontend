@@ -1,24 +1,35 @@
 // frontend/src/components/WeeklyReport.jsx
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
-import { Line } from "react-chartjs-2";
+import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
-  LineElement,
-  PointElement,
+  BarElement,
   LinearScale,
   CategoryScale,
   Tooltip,
   Legend,
 } from "chart.js";
 
-ChartJS.register(LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend);
+ChartJS.register(BarElement, LinearScale, CategoryScale, Tooltip, Legend);
 
 const COLORS = {
-  income: "#457b9d",
   expense: "#e76f51",
   savings: "#2a9d8f",
+  remain:  "#a8dadc",
 };
+
+function formatINR(n) {
+  try {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(n);
+  } catch {
+    return `₹${Math.round(Number(n) || 0)}`;
+  }
+}
 
 export default function WeeklyReport() {
   const [rows, setRows] = useState([]);
@@ -31,14 +42,11 @@ export default function WeeklyReport() {
         setRows(res.data || []);
       });
 
-    // initial load
-    fetchData();
+    fetchData(); // initial
 
-    // refresh when any transaction is added/edited/deleted
     const onTxChanged = () => fetchData();
     window.addEventListener("tx:changed", onTxChanged);
 
-    // also refresh when returning to the tab (helps if API updated in background)
     const onVisible = () => {
       if (document.visibilityState === "visible") fetchData();
     };
@@ -50,53 +58,65 @@ export default function WeeklyReport() {
     };
   }, []);
 
-  const { labels, income, expense, savings } = useMemo(() => {
-    const weekday = (iso) => {
-      const d = new Date(iso + "T00:00:00");
-      return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
-    };
+  // Collapse week into a single stacked bar (same containment rules as your weekly pie)
+  const { weekIncome, weekExpense, weekSavings, weekRemain } = useMemo(() => {
+    const incRaw = rows.map((r) => Math.max(Number(r?.income || 0), 0));
+    const expRaw = rows.map((r) => Math.max(Number(r?.expense || 0), 0));
+    const savRaw = rows.map((r) => Math.max(Number(r?.savings || 0), 0));
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const totalIncome = incRaw.reduce((a, b) => a + b, 0);
+    const totalExpenseRaw = expRaw.reduce((a, b) => a + b, 0);
+    const totalSavingsRaw = savRaw.reduce((a, b) => a + b, 0);
 
-    const labels = rows.map((r) => (r?.day ? weekday(r.day) : ""));
-    const maskFuture = (val, iso) => {
-      const d = new Date((iso || "") + "T00:00:00");
-      d.setHours(0, 0, 0, 0);
-      return d > today ? null : Number(val || 0);
-    };
+    const totalExpense = Math.min(totalExpenseRaw, totalIncome);
+    const totalSavings = Math.min(totalSavingsRaw, Math.max(totalIncome - totalExpense, 0));
+    const totalRemain  = Math.max(totalIncome - totalExpense - totalSavings, 0);
 
     return {
-      labels,
-      income: rows.map((r) => maskFuture(r?.income, r?.day)),
-      expense: rows.map((r) => maskFuture(r?.expense, r?.day)),
-      savings: rows.map((r) => maskFuture(r?.savings, r?.day)),
+      weekIncome: totalIncome,
+      weekExpense: totalExpense,
+      weekSavings: totalSavings,
+      weekRemain: totalRemain,
     };
   }, [rows]);
 
-  const chartData = {
-    labels,
+  const data = {
+    labels: ["This Week"],
     datasets: [
-      { label: "Income", data: income, borderColor: COLORS.income, backgroundColor: COLORS.income, tension: 0.35, spanGaps: false },
-      { label: "Expense", data: expense, borderColor: COLORS.expense, backgroundColor: COLORS.expense, tension: 0.35, spanGaps: false },
-      { label: "Savings", data: savings, borderColor: COLORS.savings, backgroundColor: COLORS.savings, tension: 0.35, spanGaps: false },
+      { label: "Expense",   data: [weekExpense], backgroundColor: COLORS.expense, stack: "stack" },
+      { label: "Savings",   data: [weekSavings], backgroundColor: COLORS.savings, stack: "stack" },
+      { label: "Remaining", data: [weekRemain],  backgroundColor: COLORS.remain,  stack: "stack" },
     ],
+  };
+
+  const options = {
+    indexAxis: "y", // horizontal stacked bar (same vibe as monthly bar)
+    responsive: true,
+    plugins: {
+      legend: { position: "bottom" },
+      tooltip: {
+        callbacks: {
+          title: () => "This Week",
+          label: (ctx) => `${ctx.dataset.label}: ${formatINR(Number(ctx.raw || 0))}`,
+          footer: () => `Income: ${formatINR(weekIncome)}`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        stacked: true,
+        min: 0,
+        suggestedMax: weekIncome || undefined,
+        ticks: { callback: (v) => formatINR(v) },
+      },
+      y: { stacked: true },
+    },
   };
 
   return (
     <div className="card">
       <div className="label">Weekly Report (This Week, Mon–Sun)</div>
-      <Line
-        data={chartData}
-        options={{
-          responsive: true,
-          plugins: {
-            legend: { position: "bottom" },
-            tooltip: { mode: "index", intersect: false },
-          },
-          scales: { y: { beginAtZero: true } },
-        }}
-      />
+      <Bar data={data} options={options} />
     </div>
   );
 }
