@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { api } from "../api";
 
 const GROUPS = [
-  { key: "home_share", label: "Direct home share" },
+  { key: "home_share", label: "Direct home share/family" },
   { key: "self", label: "Self expense" },
   { key: "gifts_family", label: "Gifts & family dinners/outings" },
   { key: "trip_family", label: "Trips (family)" },
@@ -11,7 +11,7 @@ const GROUPS = [
 ];
 
 const CATEGORIES_BY_GROUP = {
-  home_share: ["Direct home share", "Grocery"],
+  home_share: ["Direct home share", "Grocery","Family Exp"],
   self: ["Food", "Movies", "Party", "Transport", "Outings", "Other"],
   gifts_family: ["Gifts", "Family dinner", "Family outing"],
   trip_family: ["Travel", "Stay", "Food", "Shopping", "Entire Trip Cost", "Misc"],
